@@ -50,6 +50,26 @@
 <h1>Maze Map Editor</h1>
 <p class="subtitle">Draw a 32×32 maze — each cell = 4×4 pixels on the CC3200 OLED.</p>
 
+<div class="card" style="margin-bottom:20px; max-width:960px;">
+  <h2>How to play</h2>
+  <div style="display:flex; gap:24px; flex-wrap:wrap; margin-top:8px;">
+    <div style="display:flex; align-items:flex-start; gap:10px; flex:1; min-width:200px;">
+      <div style="width:14px; height:14px; border-radius:3px; background:#ccc; border:1px solid #999; flex-shrink:0; margin-top:2px;"></div>
+      <div>
+        <div style="font-size:13px; font-weight:600; margin-bottom:2px;">Runner (Player 1 — white)</div>
+        <div style="font-size:12px; color:#555;">Navigate the maze using the accelerometer and reach the <span style="color:#27ae60; font-weight:500;">green goal tile</span> before the Hunter catches you. You win by escaping.</div>
+      </div>
+    </div>
+    <div style="display:flex; align-items:flex-start; gap:10px; flex:1; min-width:200px;">
+      <div style="width:14px; height:14px; border-radius:3px; background:#e74c3c; flex-shrink:0; margin-top:2px;"></div>
+      <div>
+        <div style="font-size:13px; font-weight:600; margin-bottom:2px;">Hunter (Player 2 — red)</div>
+        <div style="font-size:12px; color:#555;">Chase the Runner through the maze. Press <strong>SW2</strong> when you are close enough to attack. Catch the Runner before they reach the goal to win.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="layout">
   <div class="editor-col">
     <canvas id="grid-canvas" width="512" height="512"></canvas>
@@ -63,8 +83,8 @@
       <div class="tool-grid">
         <button class="tool-btn tool-wall active" id="tool-wall"  onclick="setTool('wall')">■ Wall</button>
         <button class="tool-btn tool-goal"        id="tool-goal"  onclick="setTool('goal')">■ Goal (green)</button>
-        <button class="tool-btn tool-p1"          id="tool-p1"    onclick="setTool('p1')">● P1 Spawn</button>
-        <button class="tool-btn tool-p2"          id="tool-p2"    onclick="setTool('p2')">● P2 Spawn</button>
+        <button class="tool-btn tool-p1"          id="tool-p1"    onclick="setTool('p1')">● Runner spawn</button>
+        <button class="tool-btn tool-p2"          id="tool-p2"    onclick="setTool('p2')">● Hunter spawn</button>
         <button class="tool-btn tool-erase"       id="tool-erase" onclick="setTool('erase')" style="grid-column: span 2;">✕ Erase</button>
       </div>
       <div class="btn-row">
@@ -77,9 +97,9 @@
       <h2>Legend</h2>
       <div class="legend">
         <div class="legend-item"><div class="legend-dot" style="background:#3a7bd5;"></div>Wall — blocks movement</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#27ae60;"></div>Goal — win condition</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#ccc; border:1px solid #999;"></div>P1 spawn — white player start</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#e74c3c;"></div>P2 spawn — red player start</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#27ae60;"></div>Goal — Runner wins on contact</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ccc; border:1px solid #999;"></div>Runner spawn (Player 1, white)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#e74c3c;"></div>Hunter spawn (Player 2, red)</div>
       </div>
     </div>
 
@@ -139,8 +159,8 @@ function drawGrid() {
     }
   }
   // Draw spawn markers on top
-  if (spawn1) drawSpawn(spawn1.r, spawn1.c, '#cccccc', 'P1');
-  if (spawn2) drawSpawn(spawn2.r, spawn2.c, '#e74c3c', 'P2');
+  if (spawn1) drawSpawn(spawn1.r, spawn1.c, '#cccccc', 'RUN');
+  if (spawn2) drawSpawn(spawn2.r, spawn2.c, '#e74c3c', 'HNT');
 }
 
 function drawSpawn(r, c, color, label) {
@@ -255,8 +275,8 @@ function showStatus(msg, type) {
 async function saveMap() {
   const name = document.getElementById('map-name').value.trim();
   if (!name) { showStatus('Enter a map name first.', 'error'); return; }
-  if (!spawn1) { showStatus('Place a P1 spawn point first.', 'error'); return; }
-  if (!spawn2) { showStatus('Place a P2 spawn point first.', 'error'); return; }
+  if (!spawn1) { showStatus('Place a Runner spawn point first.', 'error'); return; }
+  if (!spawn2) { showStatus('Place a Hunter spawn point first.', 'error'); return; }
 
   showStatus('Saving...', 'info');
   try {

@@ -22,28 +22,33 @@
   .btn:hover { background: #f0f0f0; }
   .btn-primary { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
   .btn-primary:hover { background: #333; }
-  .btn-danger { border-color: #e55; color: #c33; }
-  .btn-danger:hover { background: #fff0f0; }
   .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
-  .tool-row { display: flex; gap: 8px; margin-bottom: 12px; }
-  .tool-btn { flex: 1; padding: 7px; border: 0.5px solid #ccc; border-radius: 6px; font-size: 13px; background: transparent; cursor: pointer; }
+  .tool-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 12px; }
+  .tool-btn { padding: 8px 6px; border: 0.5px solid #ccc; border-radius: 6px; font-size: 12px; background: transparent; cursor: pointer; text-align: center; }
   .tool-btn.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
-  .map-list { display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto; }
+  .tool-btn.tool-wall.active   { background: #3a7bd5; border-color: #3a7bd5; }
+  .tool-btn.tool-goal.active   { background: #27ae60; border-color: #27ae60; }
+  .tool-btn.tool-p1.active     { background: #888; border-color: #888; color: #fff; }
+  .tool-btn.tool-p2.active     { background: #e74c3c; border-color: #e74c3c; }
+  .tool-btn.tool-erase.active  { background: #555; border-color: #555; }
+  .map-list { display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; }
   .map-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border: 0.5px solid #ddd; border-radius: 6px; font-size: 13px; }
   .map-item-name { font-weight: 500; }
   .map-item-date { font-size: 11px; color: #999; margin-top: 2px; }
   .status { font-size: 13px; padding: 8px 10px; border-radius: 6px; }
   .status.success { background: #eafaf1; color: #1a7a45; }
-  .status.error { background: #fdf0f0; color: #c0392b; }
-  .status.info { background: #eef4ff; color: #2c5aa0; }
+  .status.error   { background: #fdf0f0; color: #c0392b; }
+  .status.info    { background: #eef4ff; color: #2c5aa0; }
   #status-msg { display: none; }
-  .config-note { font-size: 12px; color: #888; background: #fffbe6; border: 0.5px solid #e6d96a; border-radius: 6px; padding: 8px 10px; }
+  .legend { display: flex; flex-direction: column; gap: 6px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #555; }
+  .legend-dot { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
 </style>
 </head>
 <body>
 
 <h1>Maze Map Editor</h1>
-<p class="subtitle">Draw a 32×32 maze — each cell = 4×4 pixels on the CC3200 OLED. Click or drag to paint walls.</p>
+<p class="subtitle">Draw a 32×32 maze — each cell = 4×4 pixels on the CC3200 OLED.</p>
 
 <div class="layout">
   <div class="editor-col">
@@ -55,9 +60,12 @@
 
     <div class="card">
       <h2>Tools</h2>
-      <div class="tool-row">
-        <button class="tool-btn active" id="tool-wall" onclick="setTool('wall')">✦ Wall</button>
-        <button class="tool-btn" id="tool-erase" onclick="setTool('erase')">✕ Erase</button>
+      <div class="tool-grid">
+        <button class="tool-btn tool-wall active" id="tool-wall"  onclick="setTool('wall')">■ Wall</button>
+        <button class="tool-btn tool-goal"        id="tool-goal"  onclick="setTool('goal')">■ Goal (green)</button>
+        <button class="tool-btn tool-p1"          id="tool-p1"    onclick="setTool('p1')">● P1 Spawn</button>
+        <button class="tool-btn tool-p2"          id="tool-p2"    onclick="setTool('p2')">● P2 Spawn</button>
+        <button class="tool-btn tool-erase"       id="tool-erase" onclick="setTool('erase')" style="grid-column: span 2;">✕ Erase</button>
       </div>
       <div class="btn-row">
         <button class="btn" onclick="clearGrid()">Clear all</button>
@@ -66,10 +74,17 @@
     </div>
 
     <div class="card">
-      <h2>Save map</h2>
-      <div class="config-note" style="margin-bottom:12px;">
-        Set <code>API_URL</code> at the top of this file to your API Gateway invoke URL.
+      <h2>Legend</h2>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#3a7bd5;"></div>Wall — blocks movement</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#27ae60;"></div>Goal — win condition</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ccc; border:1px solid #999;"></div>P1 spawn — white player start</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#e74c3c;"></div>P2 spawn — red player start</div>
       </div>
+    </div>
+
+    <div class="card">
+      <h2>Save map</h2>
       <label>Map name</label>
       <input type="text" id="map-name" placeholder="e.g. Forest maze" style="margin-bottom:12px;" />
       <button class="btn btn-primary" onclick="saveMap()" style="width:100%">Save to cloud</button>
@@ -95,24 +110,51 @@ const API_URL = 'https://zymttkda3m.execute-api.us-east-2.amazonaws.com/prod';
 const COLS = 32, ROWS = 32, CELL = 16;
 const canvas = document.getElementById('grid-canvas');
 const ctx = canvas.getContext('2d');
-const grid = Array.from({length: ROWS}, () => new Uint8Array(COLS));
+
+// Grid layers
+const wallGrid = Array.from({length: ROWS}, () => new Uint8Array(COLS));
+const goalGrid = Array.from({length: ROWS}, () => new Uint8Array(COLS));
+let spawn1 = null;  // {r, c} or null
+let spawn2 = null;
+
 let tool = 'wall';
 let painting = false;
 
 function setTool(t) {
   tool = t;
-  document.getElementById('tool-wall').classList.toggle('active', t === 'wall');
-  document.getElementById('tool-erase').classList.toggle('active', t === 'erase');
+  ['wall','goal','p1','p2','erase'].forEach(id => {
+    document.getElementById('tool-' + id).classList.toggle('active', id === t);
+  });
 }
 
 function drawGrid() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
-      ctx.fillStyle = grid[r][c] ? '#3a7bd5' : '#111';
+      let color = '#111';
+      if (wallGrid[r][c]) color = '#3a7bd5';
+      else if (goalGrid[r][c]) color = '#27ae60';
+      ctx.fillStyle = color;
       ctx.fillRect(c * CELL, r * CELL, CELL - 1, CELL - 1);
     }
   }
+  // Draw spawn markers on top
+  if (spawn1) drawSpawn(spawn1.r, spawn1.c, '#cccccc', 'P1');
+  if (spawn2) drawSpawn(spawn2.r, spawn2.c, '#e74c3c', 'P2');
+}
+
+function drawSpawn(r, c, color, label) {
+  const x = c * CELL;
+  const y = r * CELL;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(x + CELL/2 - 0.5, y + CELL/2 - 0.5, CELL/2 - 2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#000';
+  ctx.font = 'bold 8px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(label, x + CELL/2 - 0.5, y + CELL/2 - 0.5);
 }
 
 function cellFromEvent(e) {
@@ -126,33 +168,54 @@ function cellFromEvent(e) {
 
 function paint(e) {
   const { c, r } = cellFromEvent(e);
-  if (r >= 0 && r < ROWS && c >= 0 && c < COLS) {
-    grid[r][c] = tool === 'wall' ? 1 : 0;
-    drawGrid();
+  if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return;
+
+  if (tool === 'wall') {
+    wallGrid[r][c] = 1; goalGrid[r][c] = 0;
+    if (spawn1 && spawn1.r===r && spawn1.c===c) spawn1 = null;
+    if (spawn2 && spawn2.r===r && spawn2.c===c) spawn2 = null;
+  } else if (tool === 'goal') {
+    goalGrid[r][c] = 1; wallGrid[r][c] = 0;
+    if (spawn1 && spawn1.r===r && spawn1.c===c) spawn1 = null;
+    if (spawn2 && spawn2.r===r && spawn2.c===c) spawn2 = null;
+  } else if (tool === 'p1') {
+    spawn1 = {r, c};
+    wallGrid[r][c] = 0; goalGrid[r][c] = 0;
+    if (spawn2 && spawn2.r===r && spawn2.c===c) spawn2 = null;
+  } else if (tool === 'p2') {
+    spawn2 = {r, c};
+    wallGrid[r][c] = 0; goalGrid[r][c] = 0;
+    if (spawn1 && spawn1.r===r && spawn1.c===c) spawn1 = null;
+  } else if (tool === 'erase') {
+    wallGrid[r][c] = 0; goalGrid[r][c] = 0;
+    if (spawn1 && spawn1.r===r && spawn1.c===c) spawn1 = null;
+    if (spawn2 && spawn2.r===r && spawn2.c===c) spawn2 = null;
   }
+  drawGrid();
 }
 
 canvas.addEventListener('mousedown', e => { painting = true; paint(e); });
 canvas.addEventListener('mousemove', e => { if (painting) paint(e); });
-canvas.addEventListener('mouseup', () => painting = false);
-canvas.addEventListener('mouseleave', () => painting = false);
-
+canvas.addEventListener('mouseup',   () => painting = false);
+canvas.addEventListener('mouseleave',() => painting = false);
 canvas.addEventListener('touchstart', e => { painting = true; paint(e.touches[0]); e.preventDefault(); }, {passive:false});
-canvas.addEventListener('touchmove', e => { if (painting) paint(e.touches[0]); e.preventDefault(); }, {passive:false});
-canvas.addEventListener('touchend', () => painting = false);
+canvas.addEventListener('touchmove',  e => { if (painting) paint(e.touches[0]); e.preventDefault(); }, {passive:false});
+canvas.addEventListener('touchend',   () => painting = false);
 
 function clearGrid() {
-  for (let r = 0; r < ROWS; r++) grid[r].fill(0);
+  for (let r = 0; r < ROWS; r++) { wallGrid[r].fill(0); goalGrid[r].fill(0); }
+  spawn1 = null; spawn2 = null;
   drawGrid();
 }
 
 function fillBorder() {
-  for (let c = 0; c < COLS; c++) { grid[0][c] = 1; grid[ROWS-1][c] = 1; }
-  for (let r = 0; r < ROWS; r++) { grid[r][0] = 1; grid[r][COLS-1] = 1; }
+  for (let c = 0; c < COLS; c++) { wallGrid[0][c] = 1; wallGrid[ROWS-1][c] = 1; }
+  for (let r = 0; r < ROWS; r++) { wallGrid[r][0] = 1; wallGrid[r][COLS-1] = 1; }
   drawGrid();
 }
 
-function gridToHex() {
+// Pack a 32x32 binary grid into a 256-char hex string
+function packGrid(grid) {
   let hex = '';
   for (let byteIdx = 0; byteIdx < 128; byteIdx++) {
     let byte = 0;
@@ -167,7 +230,8 @@ function gridToHex() {
   return hex;
 }
 
-function hexToGrid(hex) {
+// Unpack a 256-char hex string into a 32x32 binary grid
+function unpackGrid(hex, grid) {
   for (let r = 0; r < ROWS; r++) grid[r].fill(0);
   for (let byteIdx = 0; byteIdx < 128; byteIdx++) {
     const byte = parseInt(hex.substr(byteIdx * 2, 2), 16);
@@ -178,7 +242,6 @@ function hexToGrid(hex) {
       if (r < ROWS && (byte & (1 << (7 - bit)))) grid[r][c] = 1;
     }
   }
-  drawGrid();
 }
 
 function showStatus(msg, type) {
@@ -192,13 +255,21 @@ function showStatus(msg, type) {
 async function saveMap() {
   const name = document.getElementById('map-name').value.trim();
   if (!name) { showStatus('Enter a map name first.', 'error'); return; }
-  const grid_hex = gridToHex();
+  if (!spawn1) { showStatus('Place a P1 spawn point first.', 'error'); return; }
+  if (!spawn2) { showStatus('Place a P2 spawn point first.', 'error'); return; }
+
   showStatus('Saving...', 'info');
   try {
     const res = await fetch(API_URL + '/maps', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, grid: grid_hex })
+      body: JSON.stringify({
+        name,
+        grid:     packGrid(wallGrid),
+        goalGrid: packGrid(goalGrid),
+        spawn1:   [spawn1.r, spawn1.c],
+        spawn2:   [spawn2.r, spawn2.c]
+      })
     });
     const data = await res.json();
     if (res.ok) {
@@ -208,7 +279,7 @@ async function saveMap() {
       showStatus('Error: ' + (data.error || res.status), 'error');
     }
   } catch (e) {
-    showStatus('Network error — check API_URL is set correctly.', 'error');
+    showStatus('Network error — check API_URL.', 'error');
   }
 }
 
@@ -216,7 +287,7 @@ async function loadMapList() {
   const listEl = document.getElementById('map-list');
   listEl.innerHTML = '<div style="font-size:13px;color:#999;">Loading...</div>';
   try {
-    const res = await fetch(API_URL + '/maps');
+    const res  = await fetch(API_URL + '/maps');
     const maps = await res.json();
     if (!maps.length) {
       listEl.innerHTML = '<div style="font-size:13px;color:#999;">No maps saved yet.</div>';
@@ -231,6 +302,7 @@ async function loadMapList() {
         </div>
         <div style="display:flex;gap:6px;">
           <button class="btn" style="padding:4px 10px;font-size:12px;" onclick="loadMap('${m.mapId}')">Load</button>
+          <button class="btn" style="padding:4px 10px;font-size:12px;color:#c33;border-color:#e55;" onclick="deleteMap('${m.mapId}', '${escHtml(m.name)}')">Delete</button>
         </div>
       </div>`).join('');
   } catch(e) {
@@ -240,13 +312,39 @@ async function loadMapList() {
 
 async function loadMap(mapId) {
   try {
-    const res = await fetch(API_URL + '/maps/' + mapId);
+    const res  = await fetch(API_URL + '/maps/' + mapId);
     const data = await res.json();
-    hexToGrid(data.grid);
+
+    unpackGrid(data.grid, wallGrid);
+
+    // goalGrid may not exist on older saved maps
+    if (data.goalGrid) unpackGrid(data.goalGrid, goalGrid);
+    else for (let r = 0; r < ROWS; r++) goalGrid[r].fill(0);
+
+    spawn1 = data.spawn1 ? {r: data.spawn1[0], c: data.spawn1[1]} : null;
+    spawn2 = data.spawn2 ? {r: data.spawn2[0], c: data.spawn2[1]} : null;
+
     document.getElementById('map-name').value = data.name;
+    drawGrid();
     showStatus('Loaded: ' + data.name, 'success');
   } catch(e) {
     showStatus('Failed to load map.', 'error');
+  }
+}
+
+async function deleteMap(mapId, name) {
+  if (!confirm('Delete "' + name + '"? This cannot be undone.')) return;
+  try {
+    const res = await fetch(API_URL + '/maps/' + mapId, { method: 'DELETE' });
+    if (res.ok) {
+      showStatus('Deleted: ' + name, 'success');
+      loadMapList();
+    } else {
+      const data = await res.json().catch(() => ({}));
+      showStatus('Delete failed: ' + (data.error || res.status), 'error');
+    }
+  } catch(e) {
+    showStatus('Network error during delete.', 'error');
   }
 }
 
